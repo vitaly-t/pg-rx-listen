@@ -4,7 +4,7 @@ RxJs solution for handling `LISTEN` / `NOTIFY`, using `Pool` instance from `node
 
 ## Protocol
 
-Being formuled inside [./src/main.ts](./src/main.ts)
+Being formulated inside [./src/main.ts](./src/main.ts)
 
 
 
