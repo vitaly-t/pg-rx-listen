@@ -1,4 +1,4 @@
-import {Observable, Subject, defer} from 'rxjs';
+import {Observable, Subject, defer, switchAll, switchMap, filter} from 'rxjs';
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {PoolClient} from 'pg';
@@ -19,6 +19,8 @@ export class PgListenConnection {
     private live = true;
     private connecting = false;
 
+    private onNotify = new Observable<IListenMessage>;
+
     /**
      * Channel-to-ref count map, so we only disconnect when all refs are at zero.
      * @private
@@ -26,55 +28,18 @@ export class PgListenConnection {
     private refs: { [channel: string]: number } = {};
 
     listen(...channels: string[]): Observable<IListenMessage> {
-        // starts listening, if it is not already listening (unless deferred),
-        // and subscribes to those channels;
-        const s = new Subject<IListenMessage>();
-        const {defer: d} = this.cfg;
-
-        const {pool, retryInit, retryAll} = this.cfg;
-
-        const onError = (err: any) => {
-            this.cfg.onDisconnect?.(err, this.client);
-            this.client = undefined;
-        };
-
-        const onNotify = (msg: any) => {
-            s.next(msg);
-        };
-
-        const setup = (client: PoolClient) => {
-            this.connecting = false;
-            this.client = client;
-            pool.on('error', onError);
-            client.on('notification', onNotify);
-        };
-
-        const connect = async (): Promise<void> => {
-            this.connecting = true;
-            await retryAsync(pool.connect.bind(pool), retryAll || retryDefault)
-                .then(setup)
-                .catch(err => {
-                    this.connecting = false;
-                    this.live = false;
-                    this.cfg.onEnd?.(err);
-                });
-        };
-        this.connecting = true;
-        retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
-            .then(setup)
-            .catch(err => {
-                this.connecting = false;
-                this.live = false;
-                s.error(err);
-                this.cfg.onEnd?.(err);
+        const listen = (client: PoolClient) => new Observable<void>(obs => {
+            // establish listening here and then emit, if successful, else error;
+            const list = channels.map(c => {
+                // or filter first?
+                return this.refs[c] = (this.refs[c] || 0) + 1;
+                // map into:
+                // client.query(`LISTEN ${channels.join(', ')}`);
             });
-
-        const start = () => {
-            return s.pipe();
-        };
-
-        let deferredObs: Observable<IListenMessage> | undefined;
-        return d ? defer(() => deferredObs ??= start()) : start();
+            obs.next();
+        });
+        const notify = () => this.onNotify.pipe(filter(a => channels.indexOf(a.channel) >= 0));
+        return this.connect().pipe(switchMap(listen), switchMap(notify));
     }
 
     async notify(channels: string[], payload?: string) {
@@ -109,9 +74,37 @@ export class PgListenConnection {
      *
      * @private
      */
-
-    /*
     private connect(): Observable<PoolClient> {
         const s = new Subject<PoolClient>();
-    }*/
+        // connect here and pump the client once connected
+        return s;
+
+        /*
+                const connect = async (): Promise<void> => {
+                    this.connecting = true;
+                    await retryAsync(pool.connect.bind(pool), retryAll || retryDefault)
+                        .then(setup)
+                        .catch(err => {
+                            this.connecting = false;
+                            this.live = false;
+                            this.cfg.onEnd?.(err);
+                        });
+                };
+                this.connecting = true;
+                retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
+                    .then(setup)
+                    .catch(err => {
+                        this.connecting = false;
+                        this.live = false;
+                        s.error(err);
+                        this.cfg.onEnd?.(err);
+                    });
+
+                const start = () => {
+                    return s.pipe();
+                };
+
+                let deferredObs: Observable<IListenMessage> | undefined;
+                return d ? defer(() => deferredObs ??= start()) : start();*/
+    }
 }

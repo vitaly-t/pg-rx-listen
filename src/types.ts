@@ -16,6 +16,30 @@ export interface IPgListenConfig {
     with a new list of channels.
 */
 
+/**
+ * Notification message received from Postgres.
+ */
 export interface IListenMessage {
+    /**
+     * Name of the channel that sent the notification.
+     */
+    channel: string;
 
+    /**
+     * Length of the notification payload, in bytes.
+     *
+     * Note: this is different from the number of characters
+     * in the payload, as the payload may contain binary data.
+     */
+    length: number;
+
+    /**
+     * Notification Payload: the actual data sent with the notification.
+     */
+    payload: string;
+
+    /**
+     * PID of the Postgres process that sent the notification.
+     */
+    processId: number;
 }
