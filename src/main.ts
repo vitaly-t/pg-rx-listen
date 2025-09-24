@@ -17,6 +17,7 @@ export class PgListenConnection {
 
     private client: PoolClient | undefined;
     private live = true;
+    private connecting = false;
 
     /**
      * Channel-to-ref count map, so we only disconnect when all refs are at zero.
@@ -33,30 +34,40 @@ export class PgListenConnection {
         const {pool, retryInit, retryAll} = this.cfg;
 
         const onError = (err: any) => {
-            this.cfg.onDisconnect(err, this.client);
+            this.cfg.onDisconnect?.(err, this.client);
             this.client = undefined;
-            // reconnect();
         };
 
         const onNotify = (msg: any) => {
             s.next(msg);
         };
 
-        pool.on('error', onError);
+        const setup = (client: PoolClient) => {
+            this.connecting = false;
+            this.client = client;
+            pool.on('error', onError);
+            client.on('notification', onNotify);
+        };
 
-        const reconnect = () => {
-            retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
-                .then((client: PoolClient) => {
-                    this.client = client;
-                    client.on('notification', onNotify);
-                    // client.release();
-                })
+        const connect = async (): Promise<void> => {
+            this.connecting = true;
+            await retryAsync(pool.connect.bind(pool), retryAll || retryDefault)
+                .then(setup)
                 .catch(err => {
+                    this.connecting = false;
                     this.live = false;
-                    // removeResult();
                     this.cfg.onEnd?.(err);
                 });
         };
+        this.connecting = true;
+        retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
+            .then(setup)
+            .catch(err => {
+                this.connecting = false;
+                this.live = false;
+                s.error(err);
+                this.cfg.onEnd?.(err);
+            });
 
         const start = () => {
             return s.pipe();
@@ -88,4 +99,19 @@ export class PgListenConnection {
         return [];
     }
 
+    /**
+     * We need this, because multiple calls can be made for `listen` at once,
+     * and all those callers need to get the notification when we are connected.
+     *
+     * For that, they need to subscribe to the returned observable.
+     *
+     * Maybe NOT? :)))
+     *
+     * @private
+     */
+
+    /*
+    private connect(): Observable<PoolClient> {
+        const s = new Subject<PoolClient>();
+    }*/
 }
