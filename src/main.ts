@@ -1,7 +1,8 @@
-import {Observable, Subject, defer, switchAll, switchMap, filter} from 'rxjs';
+import {Observable, Subject, defer, switchAll, switchMap, filter, of, distinct, from} from 'rxjs';
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {PoolClient} from 'pg';
+import {unique} from 'typedoc/dist/lib/utils-common';
 
 /**
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
@@ -28,6 +29,11 @@ export class PgListenConnection {
     private refs: { [channel: string]: number } = {};
 
     listen(...channels: string[]): Observable<IListenMessage> {
+        // channels.un
+
+        /*
+        const ch = of(channels).pipe(distinct());
+
         const listen = (client: PoolClient) => new Observable<void>(obs => {
             // establish listening here and then emit, if successful, else error;
             const list = channels.map(c => {
@@ -39,7 +45,32 @@ export class PgListenConnection {
             obs.next();
         });
         const notify = () => this.onNotify.pipe(filter(a => channels.indexOf(a.channel) >= 0));
-        return this.connect().pipe(switchMap(listen), switchMap(notify));
+*/
+
+        // LOGIC:
+        // 1. get the connection observable
+        // 2. remap into unique channels-list observable
+        // 3. remap into observable that emits channels void once all channels have been successfully set,
+        //    while also increasing the references.
+        // 4. remap into onNotify observable that filters for the right channels only.
+        // NOTE: 2 and 3 can be joined into one observable;
+
+        return this.connect().pipe(
+            switchMap((client: PoolClient) => of(channels).pipe(distinct(),
+                switchMap((ch: string[]) => {
+                    return new Observable<string[]>(obs => {
+                        const list = ch.map(c => {
+                            // or filter first?
+                            // return this.refs[c] = (this.refs[c] || 0) + 1;
+                            // map into:
+                            // client.query(`LISTEN ${channels.join(', ')}`);
+                        });
+                        const queryRes = Promise.all(list);
+                        const t = from(queryRes);
+                        obs.next(ch);
+                    });
+                }))
+            ), switchMap((ch: string[]) => this.onNotify.pipe(filter(a => ch.indexOf(a.channel) >= 0))));
     }
 
     async notify(channels: string[], payload?: string) {
