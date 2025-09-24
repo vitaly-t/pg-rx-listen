@@ -1,14 +1,14 @@
-import {Pool} from 'pg';
+import {Pool, PoolClient} from 'pg';
 import {RetryOptions} from './retry-async';
 
 export interface IPgListenConfig {
     pool: Pool;
-    defer: boolean;
-    retryAll: RetryOptions;
-    retryInit: RetryOptions;
-    onConnect: any;
-    onDisconnect: any;
-    onEnd: any;
+    defer?: boolean;
+    retryAll?: RetryOptions;
+    retryInit?: RetryOptions;
+    onConnect?: (client: PoolClient, count: number) => void;
+    onDisconnect?: (err: any, client: PoolClient) => void;
+    onEnd?: (err: any) => void;
 }
 
 /*

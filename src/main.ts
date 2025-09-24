@@ -16,6 +16,7 @@ export class PgListenConnection {
     }
 
     private client: PoolClient | undefined;
+    private live = true;
 
     /**
      * Channel-to-ref count map, so we only disconnect when all refs are at zero.
@@ -29,9 +30,33 @@ export class PgListenConnection {
         const s = new Subject<IListenMessage>();
         const {defer: d} = this.cfg;
 
-        if (this.client) {
-            // reuse it
-        }
+        const {pool, retryInit, retryAll} = this.cfg;
+
+        const onError = (err: any) => {
+            this.cfg.onDisconnect(err, this.client);
+            this.client = undefined;
+            // reconnect();
+        };
+
+        const onNotify = (msg: any) => {
+            s.next(msg);
+        };
+
+        pool.on('error', onError);
+
+        const reconnect = () => {
+            retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
+                .then((client: PoolClient) => {
+                    this.client = client;
+                    client.on('notification', onNotify);
+                    // client.release();
+                })
+                .catch(err => {
+                    this.live = false;
+                    // removeResult();
+                    this.cfg.onEnd?.(err);
+                });
+        };
 
         const start = () => {
             return s.pipe();
@@ -46,11 +71,11 @@ export class PgListenConnection {
     }
 
     get isLive() {
-        return true;
+        return this.live;
     }
 
     get isConnected() {
-        return true;
+        return !!this.client;
     }
 
     async end() {
@@ -63,26 +88,4 @@ export class PgListenConnection {
         return [];
     }
 
-    private connect() {
-        const {pool, retryInit, retryAll} = this.cfg;
-
-        const onError = (err: any) => {
-
-        };
-
-        const onNotify = (msg: any) => {
-
-        };
-
-        pool.on('error', onError);
-        // pool.on('notify', onNotify);
-
-        retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
-            .then((client: PoolClient) => {
-                client.on('notification', onNotify);
-                // client.release();
-            })
-            .catch(err => {
-            });
-    }
 }
