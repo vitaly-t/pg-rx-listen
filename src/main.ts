@@ -1,32 +1,44 @@
-import {Observable} from 'rxjs';
+import {Observable, Subject, defer} from 'rxjs';
+import {IListenMessage, IPgListenConfig} from './types';
+import {retryAsync, RetryOptions} from './retry-async';
+import {PoolClient} from 'pg';
 
-interface IPgListenConfig {
-    pool: any;
-    defer: boolean;
-    retryAll: any;
-    retryInit: any;
-    onConnect: any;
-    onDisconnect: any;
-    onEnd: any;
-}
-
-/*
-    So currently we cannot add/remove channels, we can only create a new listener
-    with a new list of channels.
-*/
-
-interface IMessage {
-
-}
+/**
+ * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
+ */
+const retryDefault: RetryOptions = {
+    retry: 5, // up to 5 retries
+    delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
+};
 
 export class PgListenConnection {
-    constructor(cfg: IPgListenConfig) {
+    constructor(private cfg: IPgListenConfig) {
     }
 
-    listen(...channels: string[]): Observable<IMessage> {
-        // starts listening, if it is not already listening,
+    private client: PoolClient | undefined;
+
+    /**
+     * Channel-to-ref count map, so we only disconnect when all refs are at zero.
+     * @private
+     */
+    private refs: { [channel: string]: number } = {};
+
+    listen(...channels: string[]): Observable<IListenMessage> {
+        // starts listening, if it is not already listening (unless deferred),
         // and subscribes to those channels;
-        return null as any;
+        const s = new Subject<IListenMessage>();
+        const {defer: d} = this.cfg;
+
+        if (this.client) {
+            // reuse it
+        }
+
+        const start = () => {
+            return s.pipe();
+        };
+
+        let deferredObs: Observable<IListenMessage> | undefined;
+        return d ? defer(() => deferredObs ??= start()) : start();
     }
 
     async notify(channels: string[], payload?: string) {
@@ -41,13 +53,36 @@ export class PgListenConnection {
         return true;
     }
 
-    async cancel() {
-        // stops listening + disconnects
+    async end() {
+        // stops listening + disconnect
     }
 
     get channels(): string[] {
         // gets a list of channels we are currently listen to,
         // across all observables.
         return [];
+    }
+
+    private connect() {
+        const {pool, retryInit, retryAll} = this.cfg;
+
+        const onError = (err: any) => {
+
+        };
+
+        const onNotify = (msg: any) => {
+
+        };
+
+        pool.on('error', onError);
+        // pool.on('notify', onNotify);
+
+        retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
+            .then((client: PoolClient) => {
+                client.on('notification', onNotify);
+                // client.release();
+            })
+            .catch(err => {
+            });
     }
 }
