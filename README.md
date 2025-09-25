@@ -7,3 +7,7 @@ RxJs solution for handling `LISTEN` / `NOTIFY`, using `Pool` instance from `node
 Being formulated inside [./src](./src)
 
 
+## Issues
+
+* Last UNLISTEN happens after DISCONNECT.
+

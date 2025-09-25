@@ -1,4 +1,4 @@
-import {Observable, Subject, defer, switchMap, filter, from, finalize} from 'rxjs';
+import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {Notification, PoolClient} from 'pg';
@@ -38,7 +38,7 @@ export class PgListenConnection {
      */
     private refs: { [channel: string]: number } = {};
 
-    listen(...channels: string[]): Observable<Notification> {
+    listen(channels: string[], ready?: () => void): Observable<Notification> {
 
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
         const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
@@ -51,7 +51,14 @@ export class PgListenConnection {
 
         return this.connection.pipe(
             switchMap(client => from(createQueries(client))),
-            switchMap(() => this.onNotify.pipe(filter(messageInChannels)))
+            tap(() => ready?.()),
+            switchMap(() => this.onNotify.pipe(filter(messageInChannels), finalize(() => {
+                if (uniqueChannels.length /*&& this.client && no more references*/) {
+                    console.log('UNLISTEN...');
+                    // TODO: UNLISTEN from the channels;
+                    //   And update the references;
+                }
+            })))
         );
     }
 
@@ -93,7 +100,6 @@ export class PgListenConnection {
         };
 
         const onNotify = (msg: Notification) => {
-            console.log('Inside onNotify');
             this.onNotify.next(msg);
         };
 
@@ -127,7 +133,9 @@ export class PgListenConnection {
             connect(retryInit || retryAll || retryDefault);
             return s.pipe(finalize(() => {
                 if (!s.observed) {
+                    console.log('DICONNECT...');
                     // TODO: UNLISTEN from all the channels + release the connection
+                    //  Maybe no UNLISTEN, if 'listen' method does it.
                 }
             }));
         };
