@@ -1,4 +1,4 @@
-import {Observable, Subject, defer, switchAll, switchMap, filter, of, distinct, from, finalize} from 'rxjs';
+import {Observable, Subject, defer, switchMap, filter, from, finalize} from 'rxjs';
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {PoolClient} from 'pg';
@@ -97,9 +97,9 @@ export class PgListenConnection {
 
         const {pool, retryInit, retryAll} = this.cfg;
 
-        const connect = (retry: RetryOptions): Promise<PoolClient> => {
+        const connect = (retry: RetryOptions): void => {
             this.connecting = true;
-            return retryAsync(pool.connect.bind(pool), retry);
+            retryAsync(pool.connect.bind(pool), retry).then(setup).catch(stop);
         };
 
         const onNotify = (msg: IListenMessage) => {
@@ -109,7 +109,9 @@ export class PgListenConnection {
         const onPoolError = (err: any, client: PoolClient) => {
             this.client = undefined;
             client.removeListener('notification', onNotify);
-            connect(retryAll || retryDefault).then(setup).catch(stop);
+            const onDisconnect = this.onDisconnect as Subject<{ err: any, client: PoolClient }>;
+            onDisconnect.next({err, client});
+            connect(retryAll || retryDefault);
         };
 
         const setup = (client: PoolClient) => {
@@ -119,6 +121,7 @@ export class PgListenConnection {
             count++;
             const onConnect = this.onConnect as Subject<{ client: PoolClient, count: number }>;
             onConnect.next({client, count});
+            s.next(client);
         };
 
         const stop = (err: any) => {
@@ -127,17 +130,18 @@ export class PgListenConnection {
             pool.removeListener('error', onPoolError);
             const onEnd = this.onEnd as Subject<any>;
             onEnd.next(err);
+            s.error(err);
         };
 
         const start = () => {
-            connect(retryInit || retryAll || retryDefault).then(setup).catch(stop);
+            connect(retryInit || retryAll || retryDefault);
             return s;
         };
 
         pool.on('error', onPoolError);
         const {defer: d} = this.cfg;
 
-        let deferredObs: Observable<PoolClient> | undefined;
+        let deferredObs: Subject<PoolClient> | undefined;
         return d ? defer(() => deferredObs ??= start()) : start();
     }
 }
