@@ -1,5 +1,5 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
-import {IListenMessage, IPgListenConfig} from './types';
+import {IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {Notification, PoolClient} from 'pg';
 
