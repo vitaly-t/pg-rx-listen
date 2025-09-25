@@ -1,7 +1,7 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize} from 'rxjs';
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
-import {PoolClient} from 'pg';
+import {Notification, PoolClient} from 'pg';
 
 /**
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
@@ -13,11 +13,12 @@ const retryDefault: RetryOptions = {
 
 export class PgListenConnection {
 
-    private connected = false;
+    private client: PoolClient | undefined;
+
     private live = true;
 
     private connection: Observable<PoolClient>; // internal connection
-    private onNotify = new Subject<IListenMessage>;
+    private onNotify = new Subject<Notification>;
 
     readonly onConnect: Observable<{ client: PoolClient, count: number }>;
     readonly onDisconnect: Observable<{ err: any, client: PoolClient }>;
@@ -37,10 +38,10 @@ export class PgListenConnection {
      */
     private refs: { [channel: string]: number } = {};
 
-    listen(...channels: string[]): Observable<IListenMessage> {
+    listen(...channels: string[]): Observable<Notification> {
 
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
-        const messageInChannels = (msg: IListenMessage) => uniqueChannels.indexOf(msg.channel) >= 0;
+        const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
 
         const createQueries = async (client: PoolClient) => {
             const sql = uniqueChannels.map(c => `LISTEN ${c}`).join(';');
@@ -50,19 +51,16 @@ export class PgListenConnection {
 
         return this.connection.pipe(
             switchMap(client => from(createQueries(client))),
-            switchMap(() => this.onNotify.pipe(
-                filter(messageInChannels),
-                finalize(() => {
-                    if (!this.onNotify.observed) {
-                        // TODO: release the client
-                    }
-                })
-            ))
+            switchMap(() => this.onNotify.pipe(filter(messageInChannels)))
         );
     }
 
     async notify(channels: string[], payload?: string) {
-        // send notification to the channels
+        if (this.client) {
+            const p = payload ? `,'${payload}'` : '';
+            const sql = channels.map(c => `NOTIFY ${c}${p}`).join(';');
+            await this.client.query(sql);
+        }
     }
 
     get isLive() {
@@ -70,7 +68,7 @@ export class PgListenConnection {
     }
 
     get isConnected() {
-        return this.connected;
+        return !!this.client;
     }
 
     async end() {
@@ -91,15 +89,16 @@ export class PgListenConnection {
         const {pool, retryInit, retryAll} = this.cfg;
 
         const connect = (retry: RetryOptions): void => {
-            retryAsync(pool.connect.bind(pool), retry).then(setup).catch(stop);
+            retryAsync(() => pool.connect(), retry).then(setup).catch(stop);
         };
 
-        const onNotify = (msg: IListenMessage) => {
+        const onNotify = (msg: Notification) => {
+            console.log('Inside onNotify');
             this.onNotify.next(msg);
         };
 
         const onPoolError = (err: any, client: PoolClient) => {
-            this.connected = false;
+            this.client = undefined;
             client.removeListener('notification', onNotify);
             const onDisconnect = this.onDisconnect as Subject<{ err: any, client: PoolClient }>;
             onDisconnect.next({err, client});
@@ -107,7 +106,7 @@ export class PgListenConnection {
         };
 
         const setup = (client: PoolClient) => {
-            this.connected = true;
+            this.client = client;
             client.on('notification', onNotify);
             count++;
             const onConnect = this.onConnect as Subject<{ client: PoolClient, count: number }>;
@@ -116,7 +115,7 @@ export class PgListenConnection {
         };
 
         const stop = (err: any) => {
-            this.connected = false;
+            this.client = undefined;
             this.live = false;
             pool.removeListener('error', onPoolError);
             const onEnd = this.onEnd as Subject<any>;
@@ -126,7 +125,11 @@ export class PgListenConnection {
 
         const start = () => {
             connect(retryInit || retryAll || retryDefault);
-            return s;
+            return s.pipe(finalize(() => {
+                if (!s.observed) {
+                    // TODO: UNLISTEN from all the channels + release the connection
+                }
+            }));
         };
 
         pool.on('error', onPoolError);
@@ -136,3 +139,4 @@ export class PgListenConnection {
         return d ? defer(() => deferredObs ??= start()) : start();
     }
 }
+
