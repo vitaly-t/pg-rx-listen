@@ -13,12 +13,8 @@ export interface IConnectParams {
 }
 
 export interface IDisconnectParams {
-    cancel?: boolean;
-    err?: any;
+    auto: boolean;
     client: PoolClient;
-}
-
-export interface IEndParams {
     err?: any;
 }
 

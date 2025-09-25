@@ -1,5 +1,5 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
-import {IConnectParams, IDisconnectParams, IEndParams, IPgListenConfig} from './types';
+import {IConnectParams, IDisconnectParams, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {Notification, PoolClient} from 'pg';
 
@@ -22,12 +22,14 @@ export class PgListenConnection {
 
     readonly onConnect: Observable<IConnectParams>;
     readonly onDisconnect: Observable<IDisconnectParams>;
-    readonly onEnd: Observable<IEndParams>;
+    readonly onEnd: Observable<any>;
+    readonly onQuery: Observable<string>;
 
     constructor(private cfg: IPgListenConfig) {
         this.onConnect = new Subject();
         this.onDisconnect = new Subject();
         this.onEnd = new Subject();
+        this.onQuery = new Subject();
         this.connection = this.createConnection();
     }
 
@@ -39,6 +41,10 @@ export class PgListenConnection {
 
     listen(channels: string[], ready?: () => void): Observable<Notification> {
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
+        const execQuery = async (client: PoolClient, sql: string) => {
+            (this.onQuery as Subject<string>).next(sql);
+            await client.query(sql);
+        };
         const startListen = async (client: PoolClient) => {
             const inactiveChannels: string[] = [];
             for (const c of uniqueChannels) {
@@ -50,15 +56,13 @@ export class PgListenConnection {
                 }
             }
             const sql = inactiveChannels.map(c => `LISTEN ${c}`).join(';');
-            console.log(sql);
-            await client.query(sql);
+            await execQuery(client, sql);
         }
         const stopListen = async (client: PoolClient) => {
             const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
             if (activeChannels.length) {
                 const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
-                console.log(sql);
-                await client.query(sql);
+                await execQuery(client, sql);
             }
         }
         const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
@@ -87,14 +91,13 @@ export class PgListenConnection {
         return !!this.client;
     }
 
-    async end() {
-        // stops listening + disconnect
-    }
-
+    /**
+     * Returns the list of channels that are currently being listened to.
+     */
     get channels(): string[] {
-        // gets a list of channels we are currently listen to,
-        // across all observables.
-        return [];
+        return Object.entries(this.refs)
+            .filter(a => a[1])
+            .map(a => a[0]);
     }
 
     private createConnection(): Observable<PoolClient> {
@@ -116,7 +119,7 @@ export class PgListenConnection {
             this.client = undefined;
             client.removeListener('notification', onNotify);
             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-            onDisconnect.next({err, client});
+            onDisconnect.next({auto: false, err, client});
             connect(retryAll || retryDefault);
         };
 
@@ -133,25 +136,23 @@ export class PgListenConnection {
             this.client = undefined;
             this.live = false;
             pool.removeListener('error', onPoolError);
-            const onEnd = this.onEnd as Subject<IEndParams>;
-            onEnd.next({err});
+            const onEnd = this.onEnd as Subject<any>;
+            onEnd.next(err);
             s.error(err);
         };
 
         let deferredObs: Observable<PoolClient> | undefined;
 
         const start = () => {
-            console.log('STARTING');
             connect(retryInit || retryAll || retryDefault);
             return s.pipe(finalize(() => {
                 if (!s.observed) {
                     setTimeout(() => {
-                        console.log('DICONNECT...');
                         if (this.client) {
+                            this.client.release();
                             this.client.removeListener('notification', onNotify);
                             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-                            onDisconnect.next({cancel: true, client: this.client});
-                            this.client.release();
+                            onDisconnect.next({auto: true, client: this.client});
                             this.client = undefined;
                             deferredObs = undefined;
                         }
@@ -163,4 +164,3 @@ export class PgListenConnection {
         return defer(() => deferredObs ??= start());
     }
 }
-

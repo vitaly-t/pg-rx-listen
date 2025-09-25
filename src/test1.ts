@@ -12,6 +12,10 @@ const pool = new Pool({
 
 const ls = new PgListenConnection({pool});
 
+ls.onQuery.subscribe(sql => {
+    console.log('QUERY:', sql);
+});
+
 const obs1 = ls.listen(['channel_1', 'channel_2'], async () => {
     await ls.notify(['channel_1', 'channel_2'], 'hello-123');
 });
