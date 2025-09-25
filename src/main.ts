@@ -13,11 +13,10 @@ const retryDefault: RetryOptions = {
 
 export class PgListenConnection {
 
-    private client: PoolClient | undefined;
+    private connected = false;
     private live = true;
-    private connecting = false;
 
-    private connection: Observable<PoolClient>;
+    private connection: Observable<PoolClient>; // internal connection
     private onNotify = new Subject<IListenMessage>;
 
     readonly onConnect: Observable<{ client: PoolClient, count: number }>;
@@ -71,7 +70,7 @@ export class PgListenConnection {
     }
 
     get isConnected() {
-        return !!this.client;
+        return this.connected;
     }
 
     async end() {
@@ -84,12 +83,6 @@ export class PgListenConnection {
         return [];
     }
 
-    /**
-     * We need this because multiple calls can be made for `listen` at once,
-     * and all those callers need to get the notification when we are connected.
-     *
-     * @private
-     */
     private createConnection(): Observable<PoolClient> {
 
         const s = new Subject<PoolClient>();
@@ -98,7 +91,6 @@ export class PgListenConnection {
         const {pool, retryInit, retryAll} = this.cfg;
 
         const connect = (retry: RetryOptions): void => {
-            this.connecting = true;
             retryAsync(pool.connect.bind(pool), retry).then(setup).catch(stop);
         };
 
@@ -107,7 +99,7 @@ export class PgListenConnection {
         };
 
         const onPoolError = (err: any, client: PoolClient) => {
-            this.client = undefined;
+            this.connected = false;
             client.removeListener('notification', onNotify);
             const onDisconnect = this.onDisconnect as Subject<{ err: any, client: PoolClient }>;
             onDisconnect.next({err, client});
@@ -115,8 +107,7 @@ export class PgListenConnection {
         };
 
         const setup = (client: PoolClient) => {
-            this.client = client;
-            this.connecting = false;
+            this.connected = true;
             client.on('notification', onNotify);
             count++;
             const onConnect = this.onConnect as Subject<{ client: PoolClient, count: number }>;
@@ -125,7 +116,7 @@ export class PgListenConnection {
         };
 
         const stop = (err: any) => {
-            this.connecting = false;
+            this.connected = false;
             this.live = false;
             pool.removeListener('error', onPoolError);
             const onEnd = this.onEnd as Subject<any>;
@@ -141,7 +132,7 @@ export class PgListenConnection {
         pool.on('error', onPoolError);
         const {defer: d} = this.cfg;
 
-        let deferredObs: Subject<PoolClient> | undefined;
+        let deferredObs: Observable<PoolClient> | undefined;
         return d ? defer(() => deferredObs ??= start()) : start();
     }
 }
