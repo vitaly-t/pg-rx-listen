@@ -1,5 +1,5 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
-import {IPgListenConfig} from './types';
+import {IConnectParams, IDisconnectParams, IEndParams, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {Notification, PoolClient} from 'pg';
 
@@ -20,15 +20,14 @@ export class PgListenConnection {
     private connection: Observable<PoolClient>; // internal connection
     private onNotify = new Subject<Notification>;
 
-    readonly onConnect: Observable<{ client: PoolClient, count: number }>;
-    readonly onDisconnect: Observable<{ err: any, client: PoolClient }>;
-    readonly onEnd: Observable<any>;
+    readonly onConnect: Observable<IConnectParams>;
+    readonly onDisconnect: Observable<IDisconnectParams>;
+    readonly onEnd: Observable<IEndParams>;
 
     constructor(private cfg: IPgListenConfig) {
         this.onConnect = new Subject();
         this.onDisconnect = new Subject();
         this.onEnd = new Subject();
-
         this.connection = this.createConnection();
     }
 
@@ -116,7 +115,7 @@ export class PgListenConnection {
         const onPoolError = (err: any, client: PoolClient) => {
             this.client = undefined;
             client.removeListener('notification', onNotify);
-            const onDisconnect = this.onDisconnect as Subject<{ err: any, client: PoolClient }>;
+            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
             onDisconnect.next({err, client});
             connect(retryAll || retryDefault);
         };
@@ -125,7 +124,7 @@ export class PgListenConnection {
             this.client = client;
             client.on('notification', onNotify);
             count++;
-            const onConnect = this.onConnect as Subject<{ client: PoolClient, count: number }>;
+            const onConnect = this.onConnect as Subject<IConnectParams>;
             onConnect.next({client, count});
             s.next(client);
         };
@@ -134,27 +133,34 @@ export class PgListenConnection {
             this.client = undefined;
             this.live = false;
             pool.removeListener('error', onPoolError);
-            const onEnd = this.onEnd as Subject<any>;
-            onEnd.next(err);
+            const onEnd = this.onEnd as Subject<IEndParams>;
+            onEnd.next({err});
             s.error(err);
         };
 
+        let deferredObs: Observable<PoolClient> | undefined;
+
         const start = () => {
+            console.log('STARTING');
             connect(retryInit || retryAll || retryDefault);
             return s.pipe(finalize(() => {
                 if (!s.observed) {
-                    console.log('DICONNECT...');
-                    // TODO: UNLISTEN from all the channels + release the connection
-                    //  Maybe no UNLISTEN, if 'listen' method does it.
+                    setTimeout(() => {
+                        console.log('DICONNECT...');
+                        if (this.client) {
+                            this.client.removeListener('notification', onNotify);
+                            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+                            onDisconnect.next({cancel: true, client: this.client});
+                            this.client.release();
+                            this.client = undefined;
+                            deferredObs = undefined;
+                        }
+                    });
                 }
             }));
         };
-
         pool.on('error', onPoolError);
-        const {defer: d} = this.cfg;
-
-        let deferredObs: Observable<PoolClient> | undefined;
-        return d ? defer(() => deferredObs ??= start()) : start();
+        return defer(() => deferredObs ??= start());
     }
 }
 

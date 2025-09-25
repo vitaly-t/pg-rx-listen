@@ -10,23 +10,24 @@ const pool = new Pool({
     allowExitOnIdle: true
 });
 
-const ls = new PgListenConnection({pool, defer: false});
+const ls = new PgListenConnection({pool});
 
 const obs1 = ls.listen(['channel_1', 'channel_2'], async () => {
-    await ls.notify(['channel_1'], 'hello-1');
+    await ls.notify(['channel_1', 'channel_2'], 'hello-123');
 });
 
+/*
 const obs2 = ls.listen(['channel_1'], async () => {
     await ls.notify(['channel_1'], 'hello-2');
 });
-
+*/
 const sub1 = obs1.subscribe(msg => {
     console.log('ONE:', msg);
 });
-
+/*
 const sub2 = obs2.subscribe(msg => {
     console.log('TWO:', msg);
-});
+});*/
 
 ls.onConnect.subscribe(async () => {
     console.log('Connected');
@@ -34,5 +35,13 @@ ls.onConnect.subscribe(async () => {
 
 setTimeout(() => {
     sub1.unsubscribe();
-    sub2.unsubscribe();
+    setTimeout(() => {
+        const obs2 = ls.listen(['channel_2'], async () => {
+            await ls.notify(['channel_2'], 'hello-2');
+        });
+        const sub2 = obs2.subscribe(msg => {
+            console.log('TWO:', msg);
+            sub2.unsubscribe();
+        });
+    }, 100);
 }, 100);

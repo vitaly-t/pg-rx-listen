@@ -3,9 +3,23 @@ import {RetryOptions} from './retry-async';
 
 export interface IPgListenConfig {
     pool: Pool;
-    defer?: boolean;
     retryAll?: RetryOptions;
     retryInit?: RetryOptions;
+}
+
+export interface IConnectParams {
+    client: PoolClient;
+    count: number;
+}
+
+export interface IDisconnectParams {
+    cancel?: boolean;
+    err?: any;
+    client: PoolClient;
+}
+
+export interface IEndParams {
+    err?: any;
 }
 
 /*
