@@ -6,9 +6,6 @@ export interface IPgListenConfig {
     defer?: boolean;
     retryAll?: RetryOptions;
     retryInit?: RetryOptions;
-    onConnect?: (client: PoolClient, count: number) => void;
-    onDisconnect?: (err: any, client: PoolClient) => void;
-    onEnd?: (err: any) => void;
 }
 
 /*

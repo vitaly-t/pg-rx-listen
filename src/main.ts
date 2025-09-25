@@ -2,7 +2,6 @@ import {Observable, Subject, defer, switchAll, switchMap, filter, of, distinct, 
 import {IListenMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 import {PoolClient} from 'pg';
-import {unique} from 'typedoc/dist/lib/utils-common';
 
 /**
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
@@ -13,14 +12,25 @@ const retryDefault: RetryOptions = {
 };
 
 export class PgListenConnection {
-    constructor(private cfg: IPgListenConfig) {
-    }
 
     private client: PoolClient | undefined;
     private live = true;
     private connecting = false;
 
+    private connection: Observable<PoolClient>;
     private onNotify = new Subject<IListenMessage>;
+
+    readonly onConnect: Observable<{ client: PoolClient, count: number }>;
+    readonly onDisconnect: Observable<{ err: any, client: PoolClient }>;
+    readonly onEnd: Observable<any>;
+
+    constructor(private cfg: IPgListenConfig) {
+        this.onConnect = new Subject();
+        this.onDisconnect = new Subject();
+        this.onEnd = new Subject();
+
+        this.connection = this.createConnection();
+    }
 
     /**
      * Channel-to-ref count map, so we only disconnect when all refs are at zero.
@@ -39,7 +49,7 @@ export class PgListenConnection {
             // Plus, add here the reference control
         }
 
-        return this.connect().pipe(
+        return this.connection.pipe(
             switchMap(client => from(createQueries(client))),
             switchMap(() => this.onNotify.pipe(
                 filter(messageInChannels),
@@ -75,46 +85,59 @@ export class PgListenConnection {
     }
 
     /**
-     * We need this, because multiple calls can be made for `listen` at once,
+     * We need this because multiple calls can be made for `listen` at once,
      * and all those callers need to get the notification when we are connected.
-     *
-     * For that, they need to subscribe to the returned observable.
-     *
-     * Maybe NOT? :)))
      *
      * @private
      */
-    private connect(): Observable<PoolClient> {
+    private createConnection(): Observable<PoolClient> {
+
         const s = new Subject<PoolClient>();
-        // connect here and pump the client once connected
-        return s;
+        let count = 0;
 
-        /*
-                const connect = async (): Promise<void> => {
-                    this.connecting = true;
-                    await retryAsync(pool.connect.bind(pool), retryAll || retryDefault)
-                        .then(setup)
-                        .catch(err => {
-                            this.connecting = false;
-                            this.live = false;
-                            this.cfg.onEnd?.(err);
-                        });
-                };
-                this.connecting = true;
-                retryAsync(pool.connect.bind(pool), retryInit || retryAll || retryDefault)
-                    .then(setup)
-                    .catch(err => {
-                        this.connecting = false;
-                        this.live = false;
-                        s.error(err);
-                        this.cfg.onEnd?.(err);
-                    });
+        const {pool, retryInit, retryAll} = this.cfg;
 
-                const start = () => {
-                    return s.pipe();
-                };
+        const connect = (retry: RetryOptions): Promise<PoolClient> => {
+            this.connecting = true;
+            return retryAsync(pool.connect.bind(pool), retry);
+        };
 
-                let deferredObs: Observable<IListenMessage> | undefined;
-                return d ? defer(() => deferredObs ??= start()) : start();*/
+        const onNotify = (msg: IListenMessage) => {
+            this.onNotify.next(msg);
+        };
+
+        const onPoolError = (err: any, client: PoolClient) => {
+            this.client = undefined;
+            client.removeListener('notification', onNotify);
+            connect(retryAll || retryDefault).then(setup).catch(stop);
+        };
+
+        const setup = (client: PoolClient) => {
+            this.client = client;
+            this.connecting = false;
+            client.on('notification', onNotify);
+            count++;
+            const onConnect = this.onConnect as Subject<{ client: PoolClient, count: number }>;
+            onConnect.next({client, count});
+        };
+
+        const stop = (err: any) => {
+            this.connecting = false;
+            this.live = false;
+            pool.removeListener('error', onPoolError);
+            const onEnd = this.onEnd as Subject<any>;
+            onEnd.next(err);
+        };
+
+        const start = () => {
+            connect(retryInit || retryAll || retryDefault).then(setup).catch(stop);
+            return s;
+        };
+
+        pool.on('error', onPoolError);
+        const {defer: d} = this.cfg;
+
+        let deferredObs: Observable<PoolClient> | undefined;
+        return d ? defer(() => deferredObs ??= start()) : start();
     }
 }
