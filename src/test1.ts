@@ -10,14 +10,14 @@ const pool = new Pool({
     allowExitOnIdle: true
 });
 
-const ls = new PgListenConnection({pool});
+const ls = new PgListenConnection({pool, defer: false});
 
-const obs1 = ls.listen(['channel_1'], async () => {
+const obs1 = ls.listen(['channel_1', 'channel_2'], async () => {
     await ls.notify(['channel_1'], 'hello-1');
 });
 
-const obs2 = ls.listen(['channel_2'], async () => {
-    await ls.notify(['channel_2'], 'hello-2');
+const obs2 = ls.listen(['channel_1'], async () => {
+    await ls.notify(['channel_1'], 'hello-2');
 });
 
 const sub1 = obs1.subscribe(msg => {

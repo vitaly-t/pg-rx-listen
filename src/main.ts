@@ -39,25 +39,35 @@ export class PgListenConnection {
     private refs: { [channel: string]: number } = {};
 
     listen(channels: string[], ready?: () => void): Observable<Notification> {
-
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
-        const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
-
-        const createQueries = async (client: PoolClient) => {
-            const sql = uniqueChannels.map(c => `LISTEN ${c}`).join(';');
+        const startListen = async (client: PoolClient) => {
+            const inactiveChannels: string[] = [];
+            for (const c of uniqueChannels) {
+                if (this.refs[c]) {
+                    this.refs[c]++;
+                } else {
+                    this.refs[c] = 1;
+                    inactiveChannels.push(c);
+                }
+            }
+            const sql = inactiveChannels.map(c => `LISTEN ${c}`).join(';');
+            console.log(sql);
             await client.query(sql);
-            // Plus, add here the reference control
         }
-
+        const stopListen = async (client: PoolClient) => {
+            const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
+            if (activeChannels.length) {
+                const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
+                console.log(sql);
+                await client.query(sql);
+            }
+        }
+        const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
         return this.connection.pipe(
-            switchMap(client => from(createQueries(client))),
+            switchMap(client => from(startListen(client))),
             tap(() => ready?.()),
             switchMap(() => this.onNotify.pipe(filter(messageInChannels), finalize(() => {
-                if (uniqueChannels.length /*&& this.client && no more references*/) {
-                    console.log('UNLISTEN...');
-                    // TODO: UNLISTEN from the channels;
-                    //   And update the references;
-                }
+                stopListen(this.client!).catch();
             })))
         );
     }
