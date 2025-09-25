@@ -7,7 +7,7 @@ import {Notification, PoolClient} from 'pg';
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
  */
 const retryDefault: RetryOptions = {
-    retry: 5, // up to 5 retries
+    retry: 10, // up to 5 retries
     delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
 };
 
@@ -115,17 +115,18 @@ export class PgListenConnection {
             this.onNotify.next(msg);
         };
 
-        const onPoolError = (err: any, client: PoolClient) => {
-            this.client = undefined;
-            client.removeListener('notification', onNotify);
+        const onClientError = (err: any) => {
+            this.client?.removeListener('notification', onNotify);
             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-            onDisconnect.next({auto: false, err, client});
+            onDisconnect.next({auto: false, err, client: this.client!});
+            this.client = undefined;
             connect(retryAll || retryDefault);
         };
 
         const setup = (client: PoolClient) => {
             this.client = client;
             client.on('notification', onNotify);
+            client.on('error', onClientError);
             count++;
             const onConnect = this.onConnect as Subject<IConnectParams>;
             onConnect.next({client, count});
@@ -133,9 +134,9 @@ export class PgListenConnection {
         };
 
         const stop = (err: any) => {
+            this.client?.removeListener('error', onClientError);
             this.client = undefined;
             this.live = false;
-            pool.removeListener('error', onPoolError);
             const onEnd = this.onEnd as Subject<any>;
             onEnd.next(err);
             s.error(err);
@@ -160,7 +161,6 @@ export class PgListenConnection {
                 }
             }));
         };
-        pool.on('error', onPoolError);
         return defer(() => deferredObs ??= start());
     }
 }
