@@ -1,7 +1,8 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
-import {IConnectParams, IDisconnectParams, INotificationMessage, IPgListenConfig} from './types';
+import {IConnectParams, IDisconnectParams, INotificationMessage, IPgListenConfig, IPoolClient} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
-import {PoolClient} from 'pg';
+
+type IClient = IPoolClient<INotificationMessage>;
 
 /**
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
@@ -13,11 +14,11 @@ const retryDefault: RetryOptions = {
 
 export class PgListenConnection {
 
-    private client: PoolClient | undefined;
+    private client: IClient | undefined;
 
     private live = true;
 
-    private connection: Observable<PoolClient>; // internal connection
+    private connection: Observable<IClient>; // internal connection
     private onNotify = new Subject<INotificationMessage>;
 
     readonly onConnect: Observable<IConnectParams>;
@@ -105,9 +106,9 @@ export class PgListenConnection {
             .map(a => a[0]);
     }
 
-    private createConnection(): Observable<PoolClient> {
+    private createConnection(): Observable<IClient> {
 
-        const s = new Subject<PoolClient>();
+        const s = new Subject<IClient>();
         let count = 0;
 
         const {pool, retryInit, retryAll} = this.cfg;
@@ -134,9 +135,9 @@ export class PgListenConnection {
             });
         };
 
-        const setup = (client: PoolClient) => {
+        const setup = (client: IClient) => {
             this.client = client;
-            client.on('notification', onNotify as any);
+            client.on('notification', onNotify);
             client.on('error', onClientError);
             count++;
             const onConnect = this.onConnect as Subject<IConnectParams>;
@@ -163,7 +164,7 @@ export class PgListenConnection {
             }
         };
 
-        let deferredObs: Observable<PoolClient> | undefined;
+        let deferredObs: Observable<IClient> | undefined;
 
         const start = () => {
             connect(retryInit || retryAll || retryDefault);

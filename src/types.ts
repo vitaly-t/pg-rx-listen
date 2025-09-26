@@ -1,20 +1,36 @@
-import {Pool, PoolClient} from 'pg';
 import {RetryOptions} from './retry-async';
+import {EventEmitter} from 'events';
+
+export interface IPoolClient<M = any> extends EventEmitter {
+    query(sql: string, values?: any[]): Promise<any>;
+
+    release(err?: any): void;
+
+    on(event: 'error', listener: (err: any) => void): any;
+
+    on(event: 'notification', listener: (msg: M) => void): any;
+}
+
+export interface IPostgresPool<M = any> extends EventEmitter {
+    connect(): Promise<IPoolClient<M>>;
+
+    on(event: 'error', listener: (err: any) => void): any;
+}
 
 export interface IPgListenConfig {
-    pool: Pool;
+    pool: IPostgresPool;
     retryAll?: RetryOptions;
     retryInit?: RetryOptions;
 }
 
 export interface IConnectParams {
-    client: PoolClient;
+    client: IPoolClient;
     count: number;
 }
 
 export interface IDisconnectParams {
     auto: boolean;
-    client: PoolClient;
+    client: IPoolClient;
     err?: any;
 }
 

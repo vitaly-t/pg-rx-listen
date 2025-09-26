@@ -12,14 +12,8 @@ It implements automatic re-connections, with the help of [retry-async].
 $ npm i pg-rx-listen
 ```
 
-When using from TypeScript, you will also need to install [pg] type definitions:
-
-```
-$ npm i --save-dev @types/pg
-```
-
-This libary uses [pg] / [node-postgres] as a peer-dependency, which you need to include in your project,
-either directly (if you are using [pg]) or indirectly (for any other library).
+The library uses [pg] / [node-postgres] as a peer-dependency, which you need to include in your project,
+either directly (if you are using [pg]) or indirectly (through any other library).
 
 ## Usage
 
