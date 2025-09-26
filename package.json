@@ -1,6 +1,6 @@
 {
   "name": "pg-rx-listen",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "RxJs wrapper for PostgreSQL LISTEN/NOTIFY",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

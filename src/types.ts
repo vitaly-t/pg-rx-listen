@@ -17,27 +17,31 @@ export interface IPostgresPool<M = any> extends EventEmitter {
     on(event: 'error', listener: (err: any) => void): any;
 }
 
+/**
+ * Configuration for the {@link PgListenConnection} class.
+ */
 export interface IPgListenConfig {
     pool: IPostgresPool;
     retryAll?: RetryOptions;
     retryInit?: RetryOptions;
 }
 
+/**
+ * Parameters for the {@link PgListenConnection.onConnect} event.
+ */
 export interface IConnectParams {
     client: IPoolClient;
     count: number;
 }
 
+/**
+ * Parameters for the {@link PgListenConnection.onDisconnect} event.
+ */
 export interface IDisconnectParams {
     auto: boolean;
     client: IPoolClient;
     err?: any;
 }
-
-/*
-    So currently we cannot add/remove channels, we can only create a new listener
-    with a new list of channels.
-*/
 
 /**
  * Notification Message received from Postgres.
