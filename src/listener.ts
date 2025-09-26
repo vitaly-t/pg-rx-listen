@@ -118,7 +118,14 @@ export class PgListenConnection {
         };
 
         const onNotify = (msg: INotificationMessage) => {
-            this.onNotify.next(msg);
+            // below we extract only what's useful from the
+            // underlying NotificationResponseMessage type:
+            this.onNotify.next({
+                channel: msg.channel,
+                length: msg.length,
+                payload: msg.payload,
+                processId: msg.processId
+            });
         };
 
         const onClientError = (err: any) => {

@@ -1,6 +1,6 @@
 {
   "name": "pg-rx-listen",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "RxJs wrapper for PostgreSQL LISTEN/NOTIFY",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -42,7 +42,7 @@
     "rxjs": "^7.8.2"
   },
   "peerDependencies": {
-    "pg": ">=8.0.0"
+    "pg": ">=8.7.0"
   },
   "devDependencies": {
     "@types/jest": "30.0.0",
