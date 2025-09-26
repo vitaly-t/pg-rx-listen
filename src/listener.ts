@@ -65,7 +65,7 @@ export class PgListenConnection {
         }
         const stopListen = async () => {
             const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
-                if (activeChannels.length) {
+            if (activeChannels.length) {
                 const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
                 await this.executeSql(sql);
             }
