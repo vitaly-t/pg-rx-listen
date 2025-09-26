@@ -41,5 +41,6 @@ const sub1 = obs1.subscribe(msg => console.log('msg1:', msg));
 const sub2 = obs2.subscribe(msg => console.log('msg2:', msg));
 
 setInterval(async () => {
-    await ls.notify(['channel_1', 'channel_2'], Date.now().toString());
+    const res = await ls.notify(['channel_1', 'channel_2'], Date.now().toString());
+    console.log('notify:', res);
 }, 1000);

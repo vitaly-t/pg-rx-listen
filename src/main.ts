@@ -7,8 +7,9 @@ import {Notification, PoolClient} from 'pg';
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
  */
 const retryDefault: RetryOptions = {
-    retry: 10, // up to 5 retries
-    delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
+    delay: 500
+    // retry: 10, // up to 5 retries
+    //delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
 };
 
 export class PgListenConnection {
@@ -33,6 +34,15 @@ export class PgListenConnection {
         this.connection = this.createConnection();
     }
 
+    private async executeSql(sql: string): Promise<boolean> {
+        if (this.client) {
+            await this.client.query(sql);
+            (this.onQuery as Subject<string>).next(sql);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Channel-to-ref count map, so we only disconnect when all refs are at zero.
      * @private
@@ -41,11 +51,7 @@ export class PgListenConnection {
 
     listen(channels: string[], ready?: () => void): Observable<Notification> {
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
-        const execQuery = async (client: PoolClient, sql: string) => {
-            (this.onQuery as Subject<string>).next(sql);
-            await client.query(sql);
-        };
-        const startListen = async (client: PoolClient) => {
+        const startListen = async () => {
             const inactiveChannels: string[] = [];
             for (const c of uniqueChannels) {
                 if (this.refs[c]) {
@@ -56,31 +62,29 @@ export class PgListenConnection {
                 }
             }
             const sql = inactiveChannels.map(c => `LISTEN ${c}`).join(';');
-            await execQuery(client, sql);
+            await this.executeSql(sql);
         }
-        const stopListen = async (client: PoolClient) => {
+        const stopListen = async () => {
             const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
             if (activeChannels.length) {
                 const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
-                await execQuery(client, sql);
+                await this.executeSql(sql);
             }
         }
         const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
         return this.connection.pipe(
-            switchMap(client => from(startListen(client))),
+            switchMap(() => from(startListen())),
             tap(() => ready?.()),
             switchMap(() => this.onNotify.pipe(filter(messageInChannels), finalize(() => {
-                stopListen(this.client!).catch();
+                stopListen().catch();
             })))
         );
     }
 
-    async notify(channels: string[], payload?: string) {
-        if (this.client) {
-            const p = payload ? `,'${payload}'` : '';
-            const sql = channels.map(c => `NOTIFY ${c}${p}`).join(';');
-            await this.client.query(sql);
-        }
+    notify(channels: string[], payload?: string): Promise<boolean> {
+        const p = payload ? `,'${payload}'` : '';
+        const sql = channels.map(c => `NOTIFY ${c}${p}`).join(';');
+        return this.executeSql(sql);
     }
 
     get isLive() {
@@ -116,11 +120,16 @@ export class PgListenConnection {
         };
 
         const onClientError = (err: any) => {
-            this.client?.removeListener('notification', onNotify);
-            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-            onDisconnect.next({auto: false, err, client: this.client!});
+            const client = this.client!;
             this.client = undefined;
-            connect(retryAll || retryDefault);
+            client.removeListener('notification', onNotify);
+            client.release(err);
+            client.removeListener('error', onClientError);
+            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+            onDisconnect.next({auto: false, err, client});
+            setTimeout(() => {
+                connect(retryAll || retryDefault);
+            });
         };
 
         const setup = (client: PoolClient) => {
@@ -134,8 +143,11 @@ export class PgListenConnection {
         };
 
         const stop = (err: any) => {
-            this.client?.removeListener('error', onClientError);
-            this.client = undefined;
+            if (this.client) {
+                this.client.removeListener('error', onClientError);
+                this.client.removeListener('notification', onNotify);
+                this.client = undefined;
+            }
             this.live = false;
             const onEnd = this.onEnd as Subject<any>;
             onEnd.next(err);
@@ -150,8 +162,9 @@ export class PgListenConnection {
                 if (!s.observed) {
                     setTimeout(() => {
                         if (this.client) {
-                            this.client.release();
                             this.client.removeListener('notification', onNotify);
+                            this.client.removeListener('error', onClientError);
+                            this.client.release();
                             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
                             onDisconnect.next({auto: true, client: this.client});
                             this.client = undefined;
@@ -161,6 +174,9 @@ export class PgListenConnection {
                 }
             }));
         };
+        pool.on('error', () => {
+            // do nothing
+        });
         return defer(() => deferredObs ??= start());
     }
 }
