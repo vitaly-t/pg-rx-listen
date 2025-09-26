@@ -2,7 +2,12 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2022",
-    "strict": true
+    "declaration": true,
+    "declarationDir": "../dist",
+    "outDir": "../dist",
+    "esModuleInterop": true,
+    "strict": true,
+    "noUnusedLocals": true
   },
   "include": [
     "./**/*.ts"

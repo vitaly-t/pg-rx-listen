@@ -1,7 +1,7 @@
 {
   "name": "pg-rx-listen",
-  "version": "0.7.1",
-  "description": "bla-bla",
+  "version": "0.0.1",
+  "description": "RxJs wrapper for PostgreSQL LISTEN/NOTIFY",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,19 +13,21 @@
   "files": [
     "dist"
   ],
-  "homepage": "https://github.com/vitaly-t/pg-listener",
+  "homepage": "https://github.com/vitaly-t/pg-rx-listen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vitaly-t/pg-listener.git"
+    "url": "https://github.com/vitaly-t/pg-rx-listen.git"
   },
   "bugs": {
-    "url": "https://github.com/vitaly-t/pg-listener/issues",
+    "url": "https://github.com/vitaly-t/pg-rx-listen/issues",
     "email": "vitaly.tomilov@gmail.com"
   },
   "keywords": [
     "postgres",
-    "notify",
     "listen",
+    "notify",
+    "rxjs",
+    "pg",
     "pg-promise"
   ],
   "author": {
@@ -37,7 +39,7 @@
     "node": ">=16"
   },
   "peerDependencies": {
-    "pg": ">=8"
+    "pg": "^8.16.3"
   },
   "dependencies": {
     "rxjs": "^7.8.2"
