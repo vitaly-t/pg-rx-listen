@@ -2,7 +2,10 @@
 
 [RxJs] solution for handling `LISTEN` / `NOTIFY`, supporting any library that exposes [Pool] from [node-postgres].
 
-It implements automatic re-connections, with the help of [retry-async].
+**Main Features:**
+
+* Automatically restores lost connections, with the help of [retry-async].
+* Auto-connects on the first subscription and disconnects on the last one. 
 
 > **NOTE: This library, though fully functional, is in active development. Contributors are welcome!**
 
