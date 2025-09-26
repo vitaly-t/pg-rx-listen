@@ -7,9 +7,8 @@ import {Notification, PoolClient} from 'pg';
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
  */
 const retryDefault: RetryOptions = {
-    delay: 500
-    // retry: 10, // up to 5 retries
-    //delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
+    retry: 10, // up to 5 retries
+    delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
 };
 
 export class PgListenConnection {
@@ -35,7 +34,7 @@ export class PgListenConnection {
     }
 
     private async executeSql(sql: string): Promise<boolean> {
-        if (this.client) {
+        if (this.client && sql.length > 0) {
             await this.client.query(sql);
             (this.onQuery as Subject<string>).next(sql);
             return true;
@@ -66,7 +65,7 @@ export class PgListenConnection {
         }
         const stopListen = async () => {
             const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
-            if (activeChannels.length) {
+                if (activeChannels.length) {
                 const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
                 await this.executeSql(sql);
             }
@@ -76,7 +75,9 @@ export class PgListenConnection {
             switchMap(() => from(startListen())),
             tap(() => ready?.()),
             switchMap(() => this.onNotify.pipe(filter(messageInChannels), finalize(() => {
-                stopListen().catch();
+                if (!this.onNotify.observed) {
+                    stopListen().catch();
+                }
             })))
         );
     }
@@ -125,6 +126,7 @@ export class PgListenConnection {
             client.removeListener('notification', onNotify);
             client.release(err);
             client.removeListener('error', onClientError);
+            clearReferences();
             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
             onDisconnect.next({auto: false, err, client});
             setTimeout(() => {
@@ -144,14 +146,21 @@ export class PgListenConnection {
 
         const stop = (err: any) => {
             if (this.client) {
-                this.client.removeListener('error', onClientError);
+                this.client.release(err);
                 this.client.removeListener('notification', onNotify);
+                this.client.removeListener('error', onClientError);
                 this.client = undefined;
             }
             this.live = false;
             const onEnd = this.onEnd as Subject<any>;
             onEnd.next(err);
             s.error(err);
+        };
+
+        const clearReferences = () => {
+            for (const c of Object.keys(this.refs)) {
+                delete this.refs[c];
+            }
         };
 
         let deferredObs: Observable<PoolClient> | undefined;
