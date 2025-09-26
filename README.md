@@ -47,7 +47,7 @@ import pgPromise from 'pg-promise';
 const pgp = pgPromise(/* init options */);
 const db = pgp(/* db connection details */);
 
-const ls = new PgListenConnection({pool: db.$pool});
+const ls = new PgListenConnection({pool: db.$pool as any});
 
 ls.listen(['channel1', 'channel2'])
     .subscribe(msg => {
