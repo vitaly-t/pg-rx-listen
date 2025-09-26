@@ -24,9 +24,9 @@ export interface IDisconnectParams {
 */
 
 /**
- * Notification message received from Postgres.
+ * Notification Message received from Postgres.
  */
-export interface IListenMessage {
+export interface INotificationMessage {
     /**
      * Name of the channel that sent the notification.
      */

@@ -11,6 +11,12 @@
 $ npm i pg-rx-listen
 ```
 
+When using from TypeScript, you will also need to install the type definitions:
+
+```
+$ npm i --save-dev @types/pg
+```
+
 The libary uses [pg] / [node-postgres] as a peer-dependency, which you need to include in your project,
 either directly (if you are using [pg]) or indirectly (if you are using [pg-promise]).
 

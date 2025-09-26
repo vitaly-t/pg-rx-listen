@@ -1,7 +1,7 @@
 import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
-import {IConnectParams, IDisconnectParams, IPgListenConfig} from './types';
+import {IConnectParams, IDisconnectParams, INotificationMessage, IPgListenConfig} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
-import {Notification, PoolClient} from 'pg';
+import {PoolClient} from 'pg';
 
 /**
  * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
@@ -18,7 +18,7 @@ export class PgListenConnection {
     private live = true;
 
     private connection: Observable<PoolClient>; // internal connection
-    private onNotify = new Subject<Notification>;
+    private onNotify = new Subject<INotificationMessage>;
 
     readonly onConnect: Observable<IConnectParams>;
     readonly onDisconnect: Observable<IDisconnectParams>;
@@ -48,7 +48,7 @@ export class PgListenConnection {
      */
     private refs: { [channel: string]: number } = {};
 
-    listen(channels: string[], ready?: () => void): Observable<Notification> {
+    listen(channels: string[], ready?: () => void): Observable<INotificationMessage> {
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);
         const startListen = async () => {
             const inactiveChannels: string[] = [];
@@ -70,7 +70,7 @@ export class PgListenConnection {
                 await this.executeSql(sql);
             }
         }
-        const messageInChannels = (msg: Notification) => uniqueChannels.indexOf(msg.channel) >= 0;
+        const messageInChannels = (msg: INotificationMessage) => uniqueChannels.indexOf(msg.channel) >= 0;
         return this.connection.pipe(
             switchMap(() => from(startListen())),
             tap(() => ready?.()),
@@ -116,7 +116,7 @@ export class PgListenConnection {
             retryAsync(() => pool.connect(), retry).then(setup).catch(stop);
         };
 
-        const onNotify = (msg: Notification) => {
+        const onNotify = (msg: INotificationMessage) => {
             this.onNotify.next(msg);
         };
 
@@ -136,7 +136,7 @@ export class PgListenConnection {
 
         const setup = (client: PoolClient) => {
             this.client = client;
-            client.on('notification', onNotify);
+            client.on('notification', onNotify as any);
             client.on('error', onClientError);
             count++;
             const onConnect = this.onConnect as Subject<IConnectParams>;
