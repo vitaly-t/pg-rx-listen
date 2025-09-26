@@ -1,7 +1,6 @@
 # pg-rx-listen
 
-[RxJs] solution for handling `LISTEN` / `NOTIFY`, supporting any library that exposes a [Pool] instance
-from [node-postgres].
+[RxJs] solution for handling `LISTEN` / `NOTIFY`, supporting any library that exposes [Pool] from [node-postgres].
 
 It implements automatic re-connections, with the help of [retry-async].
 
