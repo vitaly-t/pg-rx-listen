@@ -218,7 +218,7 @@ export class PgListenConnection {
         const start = () => {
             connect(retryInit || retryAll || retryDefault);
             return s.pipe(
-                shareReplay({bufferSize: 1, refCount: false}),
+                shareReplay({bufferSize: 1, refCount: true}),
                 finalize(() => {
                     if (!s.observed && this.client) {
                         this.client.removeListener('notification', onNotify);
