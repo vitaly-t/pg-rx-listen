@@ -3,6 +3,8 @@ import {PgListenConnection} from '../src';
 
 const {pool} = initDb();
 
+const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 describe('constructor', () => {
     it('must initialize correctly', async () => {
         const ls = new PgListenConnection({pool});
@@ -25,6 +27,24 @@ describe('listen', () => {
             expect(ls.liveChannels).toEqual(['channel_1']);
             expect(ls.isConnected).toBeTruthy();
             sub.unsubscribe();
+            done();
+        });
+    });
+    it.skip('can share live connection', (done) => {
+        const ls = new PgListenConnection({pool});
+        const onConnect = jest.fn();
+        const onDisconnect = jest.fn();
+        ls.onConnect.subscribe(onConnect);
+        ls.onDisconnect.subscribe(onDisconnect);
+        const sub1 = ls.listen(['channel_1']).subscribe();
+        const sub2 = ls.listen(['channel_2']).subscribe();
+        const sub3 = ls.listen(['channel_3']).subscribe();
+        pause(100).then(() => {
+            sub1.unsubscribe();
+            sub2.unsubscribe();
+            sub3.unsubscribe();
+            expect(onConnect).toHaveBeenCalledTimes(1);
+            expect(onDisconnect).toHaveBeenCalledTimes(1);
             done();
         });
     });
