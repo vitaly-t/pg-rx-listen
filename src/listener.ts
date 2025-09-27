@@ -72,7 +72,7 @@ export class PgListenConnection {
      * you subscribe to the returned observable.
      *
      * @param channels - List of channels to listen to.
-     * @param ready - Callback for when it is ready to send notifications (if you need those), i.e.
+     * @param [ready] - Optional callback for when it is ready to send notifications (if you need those), i.e.
      *                when a connection has been established + `LISTEN` queries finished execution.
      */
     listen(channels: string[], ready?: () => void): Observable<INotificationMessage> {
