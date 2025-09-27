@@ -220,15 +220,17 @@ export class PgListenConnection {
             return s.pipe(
                 shareReplay({bufferSize: 1, refCount: true}),
                 finalize(() => {
-                    if (!s.observed && this.client) {
+                    if (!s.observed) {
                         setTimeout(() => {
-                            this.client?.removeListener('notification', onNotify);
-                            this.client?.removeListener('error', onClientError);
-                            this.client?.release();
-                            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-                            onDisconnect.next({auto: true, client: this.client!});
-                            this.client = undefined;
-                            deferredObs = undefined;
+                            if (this.client) {
+                                this.client.removeListener('notification', onNotify);
+                                this.client.removeListener('error', onClientError);
+                                this.client.release();
+                                const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+                                onDisconnect.next({auto: true, client: this.client});
+                                this.client = undefined;
+                                deferredObs = undefined;
+                            }
                         });
                     }
                 }));
