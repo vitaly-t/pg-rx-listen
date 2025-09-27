@@ -1,4 +1,4 @@
-import {Observable, Subject, defer, switchMap, filter, from, finalize, tap} from 'rxjs';
+import {Observable, Subject, defer, switchMap, filter, from, finalize, tap, shareReplay} from 'rxjs';
 import {IConnectParams, IDisconnectParams, INotificationMessage, IPgListenConfig, IPoolClient} from './types';
 import {retryAsync, RetryOptions} from './retry-async';
 
@@ -102,9 +102,7 @@ export class PgListenConnection {
             switchMap(() => from(startListen())),
             tap(() => ready?.()),
             switchMap(() => this.onNotify.pipe(filter(messageInChannels), finalize(() => {
-                if (!this.onNotify.observed) {
-                    stopListen().catch();
-                }
+                stopListen().catch();
             })))
         );
     }
@@ -219,21 +217,19 @@ export class PgListenConnection {
 
         const start = () => {
             connect(retryInit || retryAll || retryDefault);
-            return s.pipe(finalize(() => {
-                if (!s.observed) {
-                    setTimeout(() => {
-                        if (this.client) {
-                            this.client.removeListener('notification', onNotify);
-                            this.client.removeListener('error', onClientError);
-                            this.client.release();
-                            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-                            onDisconnect.next({auto: true, client: this.client});
-                            this.client = undefined;
-                            deferredObs = undefined;
-                        }
-                    });
-                }
-            }));
+            return s.pipe(
+                shareReplay(1),
+                finalize(() => {
+                    if (this.client) {
+                        this.client.removeListener('notification', onNotify);
+                        this.client.removeListener('error', onClientError);
+                        this.client.release();
+                        const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+                        onDisconnect.next({auto: true, client: this.client});
+                        this.client = undefined;
+                        deferredObs = undefined;
+                    }
+                }));
         };
         pool.on('error', () => {
             // do nothing
