@@ -221,13 +221,15 @@ export class PgListenConnection {
                 shareReplay({bufferSize: 1, refCount: true}),
                 finalize(() => {
                     if (!s.observed && this.client) {
-                        this.client.removeListener('notification', onNotify);
-                        this.client.removeListener('error', onClientError);
-                        this.client.release();
-                        const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-                        onDisconnect.next({auto: true, client: this.client});
-                        this.client = undefined;
-                        deferredObs = undefined;
+                        setTimeout(() => {
+                            this.client?.removeListener('notification', onNotify);
+                            this.client?.removeListener('error', onClientError);
+                            this.client?.release();
+                            const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+                            onDisconnect.next({auto: true, client: this.client!});
+                            this.client = undefined;
+                            deferredObs = undefined;
+                        });
                     }
                 }));
         };
@@ -247,8 +249,8 @@ export class PgListenConnection {
      */
     private async executeSql(sql: string): Promise<boolean> {
         if (this.client && sql.length > 0) {
-            await this.client.query(sql);
             (this.onQuery as Subject<string>).next(sql);
+            await this.client.query(sql);
             return true;
         }
         return false;

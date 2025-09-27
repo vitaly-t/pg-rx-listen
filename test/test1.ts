@@ -24,13 +24,19 @@ ls.onQuery.subscribe((a) => {
     console.log(`Query: ${a}`);
 });
 
-const sub1 = ls.listen(['channel_1'], async () => {
+const listen1 = ls.listen(['channel_1'], () => {
     console.log('First Ready');
-})
-    .subscribe(async msg => {
-        console.log(msg);
-        sub1.unsubscribe();
-    });
+});
+
+const sub1 = listen1.subscribe(async msg => {
+    console.log('1:', msg);
+    sub1.unsubscribe();
+});
+
+const sub10 = listen1.subscribe(async msg => {
+    console.log('2:', msg);
+    sub10.unsubscribe();
+});
 
 setTimeout(async () => {
     const sub2 = ls.listen(['channel_2'], async () => {
@@ -41,5 +47,6 @@ setTimeout(async () => {
         .subscribe(msg => {
             console.log(msg);
             sub2.unsubscribe();
+            setTimeout(() => {}, 100);
         });
 }, 1000);
