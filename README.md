@@ -5,10 +5,10 @@
 **Main Features:**
 
 * Automatically restores lost connections, with the help of [retry-async].
-* Auto-connects on the first subscription and disconnects on the last one. 
+* Auto-connects on the first subscription and disconnects on the last one.
 
-> **NOTE: This library, though fully functional, is in active development, and not production-ready!
-> Contributors are very welcome! In the meantime, for [pg-promise] you can use [pg-listener]**
+> **NOTE: This library, though fully functional, is in active development, so you may use it at your own risk.
+> Contributors are very welcome! In the meantime, specifically for [pg-promise] you can use [pg-listener]**
 
 ## Installation
 
@@ -27,7 +27,7 @@ either directly (if you are using [pg]) or indirectly (through any other library
 import {PgListenConnection} from 'pg-rx-listen';
 import {Pool} from 'pg';
 
-const pool = new Pool({/* db connection details */});
+const pool = new Pool(/* db connection details */);
 
 const ls = new PgListenConnection({pool});
 
