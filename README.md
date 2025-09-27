@@ -2,6 +2,10 @@
 
 [RxJs] solution for handling `LISTEN` / `NOTIFY`, supporting any library that exposes [Pool] from [node-postgres].
 
+[![ci](https://github.com/vitaly-t/pg-rx-listen/actions/workflows/ci.yml/badge.svg)](https://github.com/vitaly-t/pg-rx-listen/actions/workflows/ci.yml)
+[![Node Version](https://img.shields.io/badge/nodejs-16%20--%2024-green.svg?logo=node.js&style=flat)](https://nodejs.org)
+[![Postgres Version](https://img.shields.io/badge/postgresql-12%20--%2017-green.svg?logo=postgresql&style=flat)](https://www.postgresql.org)
+
 **Main Features:**
 
 * Automatically restores lost connections, with the help of [retry-async].

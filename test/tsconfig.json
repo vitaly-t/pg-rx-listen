@@ -3,7 +3,8 @@
     "module": "commonjs",
     "target": "ES2022",
     "esModuleInterop": true,
-    "strict": true
+    "strict": true,
+    "noUnusedLocals": true
   },
   "include": [
     "./**/*.ts"

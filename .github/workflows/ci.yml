@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  client-test:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 16.x, 24.x ]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+  server-test:
+    strategy:
+      matrix:
+        include:
+          - name: PG-12 + Node-16
+            POSTGRES_IMAGE: postgres:12
+            NODE_VERSION: 16
+          - name: PG-17 + Node-24
+            POSTGRES_IMAGE: postgres:17
+            NODE_VERSION: 24
+      fail-fast: false
+    name: ${{ matrix.name }}
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ${{ matrix.POSTGRES_IMAGE }}
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: pg_listener_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: github_ci_pass_123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.NODE_VERSION }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.NODE_VERSION }}
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.NODE_VERSION }}-
+      - name: Install Dependencies
+        run: npm i
+      - name: Running Tests
+        run: npm run test:ci
