@@ -21,8 +21,19 @@ export interface IPostgresPool<M = any> extends EventEmitter {
  * Configuration for the {@link PgListenConnection} class.
  */
 export interface IPgListenConfig {
+    /**
+     * The PostgreSQL connection pool to use for listening.
+     */
     pool: IPostgresPool;
+
+    /**
+     * Retry options for all connections.
+     */
     retryAll?: RetryOptions;
+
+    /**
+     * Retry options for initial connection.
+     */
     retryInit?: RetryOptions;
 }
 

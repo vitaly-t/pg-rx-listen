@@ -5,10 +5,10 @@ import {retryAsync, RetryOptions} from './retry-async';
 type IClient = IPoolClient<INotificationMessage>;
 
 /**
- * Default retry options, to be used when `retryAll` and `retryInitial` are not specified.
+ * Default retry options, to be used when `retryAll` and `retryInit` are not specified.
  */
 const retryDefault: RetryOptions = {
-    retry: 10, // up to 5 retries
+    retry: 5, // up to 5 retries
     delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
 };
 
@@ -66,7 +66,7 @@ export class PgListenConnection {
     }
 
     /**
-     * Creates an observable that emits notifications from the specified channel(s).
+     * Creates an observable that emits `LISTEN` notifications for the specified channels.
      *
      * Note that it does not trigger a connection with listening. That happens only after
      * you subscribe to the returned observable.
@@ -108,7 +108,8 @@ export class PgListenConnection {
     }
 
     /**
-     * Sends a notification to the specified channels.
+     * Sends a notification into the specified channels, with optional payload.
+     *
      * @param channels - List of channels to notify.
      * @param payload - Optional payload to send with the notification.
      * @returns `true` if the notification was sent successfully, `false` otherwise.
@@ -146,6 +147,7 @@ export class PgListenConnection {
 
     /**
      * Creates a new connection observable.
+     *
      * @private
      */
     private createConnection(): Observable<IClient> {
