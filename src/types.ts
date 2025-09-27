@@ -1,22 +1,6 @@
 import {RetryOptions} from './retry-async';
 import {EventEmitter} from 'events';
 
-export interface IPoolClient<M = any> extends EventEmitter {
-    query(sql: string, values?: any[]): Promise<any>;
-
-    release(err?: any): void;
-
-    on(event: 'error', listener: (err: any) => void): any;
-
-    on(event: 'notification', listener: (msg: M) => void): any;
-}
-
-export interface IPostgresPool<M = any> extends EventEmitter {
-    connect(): Promise<IPoolClient<M>>;
-
-    on(event: 'error', listener: (err: any) => void): any;
-}
-
 /**
  * Configuration for the {@link PgListenConnection} class.
  */
@@ -27,12 +11,32 @@ export interface IPgListenConfig {
     pool: IPostgresPool;
 
     /**
-     * Retry options for all connections.
+     * Retry options for reconnection attempts, plus for the
+     * initial connection (if {@link retryInit} is not specified).
+     *
+     * When not specified, internal `retryDefault` is used, configured as follows:
+     *
+     * ```ts
+     * const retryDefault: RetryOptions = {
+     *     retry: 5, // up to 5 retries
+     *     delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
+     * };
+     * ```
      */
     retryAll?: RetryOptions;
 
     /**
-     * Retry options for initial connection.
+     * Retry options for the initial connection only.
+     *
+     * When not specified, {@link retryAll} is used, and if not available either,
+     * then internal `retryDefault`, which is configured as follows:
+     *
+     * ```ts
+     * const retryDefault: RetryOptions = {
+     *     retry: 5, // up to 5 retries
+     *     delay: s => 5 ** (s.index + 1) // Exponential delays: 5, 25, 125, 625, 3125 ms
+     * };
+     * ```
      */
     retryInit?: RetryOptions;
 }
@@ -80,4 +84,30 @@ export interface INotificationMessage {
      * PID of the Postgres process that sent the notification.
      */
     processId: number;
+}
+
+/**
+ * Minimum connection-client interface required by this library,
+ * and compatible with the {@link https://node-postgres.com/apis/client Client}
+ * interface from `node-postgres`.
+ */
+export interface IPoolClient<M = any> extends EventEmitter {
+    query(sql: string, values?: any[]): Promise<any>;
+
+    release(err?: any): void;
+
+    on(event: 'error', listener: (err: any) => void): any;
+
+    on(event: 'notification', listener: (msg: M) => void): any;
+}
+
+/**
+ * Minimum connection-pool interface required by this library,
+ * and compatible with the {@link https://node-postgres.com/apis/pool Pool}
+ * interface from `node-postgres`.
+ */
+export interface IPostgresPool<M = any> extends EventEmitter {
+    connect(): Promise<IPoolClient<M>>;
+
+    on(event: 'error', listener: (err: any) => void): any;
 }

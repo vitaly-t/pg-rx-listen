@@ -52,10 +52,12 @@ export class PgListenConnection {
     readonly onQuery: Observable<string>;
 
     /**
-     * Channel-to-ref count map, so we only disconnect when all refs are at zero.
+     * Map of listen counters (references) for each channel,
+     * so we issue `LISTEN` / `UNLISTEN` only when needed.
+     *
      * @private
      */
-    private refs: { [channel: string]: number } = {};
+    private listenRefs: { [channel: string]: number } = {};
 
     constructor(private cfg: IPgListenConfig) {
         this.onConnect = new Subject();
@@ -80,10 +82,10 @@ export class PgListenConnection {
         const startListen = async () => {
             const inactiveChannels: string[] = [];
             for (const c of uniqueChannels) {
-                if (this.refs[c]) {
-                    this.refs[c]++;
+                if (this.listenRefs[c]) {
+                    this.listenRefs[c]++;
                 } else {
-                    this.refs[c] = 1;
+                    this.listenRefs[c] = 1;
                     inactiveChannels.push(c);
                 }
             }
@@ -91,7 +93,7 @@ export class PgListenConnection {
             await this.executeSql(sql);
         }
         const stopListen = async () => {
-            const activeChannels = uniqueChannels.filter(c => !--this.refs[c]);
+            const activeChannels = uniqueChannels.filter(c => !--this.listenRefs[c]);
             if (activeChannels.length) {
                 const sql = activeChannels.map(c => `UNLISTEN ${c}`).join(';');
                 await this.executeSql(sql);
@@ -137,16 +139,17 @@ export class PgListenConnection {
     }
 
     /**
-     * Returns the list of channels that are currently being listened to.
+     * List of channels that are currently being listened to.
      */
-    get channels(): string[] {
-        return Object.entries(this.refs)
+    get liveChannels(): string[] {
+        return Object.entries(this.listenRefs)
             .filter(a => a[1])
             .map(a => a[0]);
     }
 
     /**
-     * Creates a new connection observable.
+     * Creates a reusable connection observable, which ends only after we fail to re-connect,
+     * and {@link onEnd} has been emitted.
      *
      * @private
      */
@@ -210,8 +213,8 @@ export class PgListenConnection {
         };
 
         const clearReferences = () => {
-            for (const c of Object.keys(this.refs)) {
-                delete this.refs[c];
+            for (const c of Object.keys(this.listenRefs)) {
+                delete this.listenRefs[c];
             }
         };
 
