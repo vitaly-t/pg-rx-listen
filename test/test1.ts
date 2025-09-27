@@ -12,12 +12,24 @@ const pool = new Pool({
 
 const ls = new PgListenConnection({pool});
 
+ls.onDisconnect.subscribe(a => {
+    console.log(`Disconnected`);
+});
+
+ls.onConnect.subscribe(a => {
+    console.log(`Connected`);
+});
+
+ls.onQuery.subscribe((a) => {
+    console.log(`Query: ${a}`);
+});
+
 const sub1 = ls.listen(['channel_1'], async () => {
     console.log('First Ready');
 })
     .subscribe(async msg => {
-        await ls.notify(['channel_2'], 'First Msg');
         console.log(msg);
+        await ls.notify(['channel_2'], 'First Msg');
         sub1.unsubscribe();
     });
 
