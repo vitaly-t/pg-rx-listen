@@ -115,6 +115,32 @@ export class PgListenConnection {
      * @param channels - List of channels to notify.
      * @param payload - Optional payload to send with the notification.
      * @returns `true` if the notification was sent successfully, `false` otherwise.
+     *
+     * @example
+     * ```ts
+     * // "ls" is of type "PgListenConnection"
+     * ls.listen(['channel_1', 'channel_2'], async () => {
+     *     await ls.notify(['channel_1', 'channel_2'], 'Hello World!');
+     * })
+     *     .subscribe(msg => {
+     *         console.log(msg);
+     *     });
+     * ```
+     * > Output:
+     * ```js
+     * {
+     *   channel: 'channel_1',
+     *   length: 31,
+     *   payload: 'Hello World!',
+     *   processId: 644
+     * }
+     * {
+     *   channel: 'channel_2',
+     *   length: 31,
+     *   payload: 'Hello World!',
+     *   processId: 644
+     * }
+     * ```
      */
     notify(channels: string[], payload?: string): Promise<boolean> {
         const p = payload ? `,'${payload}'` : '';
