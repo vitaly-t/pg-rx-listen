@@ -24,22 +24,29 @@ ls.onQuery.subscribe((a) => {
     console.log(`Query: ${a}`);
 });
 
-const sub1 = ls.listen(['channel_1'], async () => {
+const listen1 = ls.listen(['channel_1'], () => {
     console.log('First Ready');
-})
-    .subscribe(async msg => {
-        console.log(msg);
-        await ls.notify(['channel_2'], 'First Msg');
-        sub1.unsubscribe();
-    });
+});
 
-setTimeout(() => {
+const sub1 = listen1.subscribe(async msg => {
+    console.log('1:', msg);
+    sub1.unsubscribe();
+});
+
+const sub10 = listen1.subscribe(async msg => {
+    console.log('2:', msg);
+    sub10.unsubscribe();
+});
+
+setTimeout(async () => {
     const sub2 = ls.listen(['channel_2'], async () => {
         console.log('Second Ready');
-        await ls.notify(['channel_1'], 'Second Msg');
+        await ls.notify(['channel_1'], 'First Msg');
+        await ls.notify(['channel_2'], 'Second Msg');
     })
         .subscribe(msg => {
             console.log(msg);
             sub2.unsubscribe();
+            setTimeout(() => {}, 100);
         });
 }, 1000);
