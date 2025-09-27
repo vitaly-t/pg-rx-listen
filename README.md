@@ -31,7 +31,7 @@ const pool = new Pool(/* db connection details */);
 
 const ls = new PgListenConnection({pool});
 
-ls.listen(['channel1', 'channel2'])
+ls.listen(['channel_1', 'channel_2'])
     .subscribe(msg => {
         console.log(msg.payload);
     });
@@ -48,7 +48,7 @@ const db = pgp(/* db connection details */);
 
 const ls = new PgListenConnection({pool: db.$pool as any});
 
-ls.listen(['channel1', 'channel2'])
+ls.listen(['channel_1', 'channel_2'])
     .subscribe(msg => {
         console.log(msg.payload);
     });
