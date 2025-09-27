@@ -29,14 +29,14 @@ const sub1 = ls.listen(['channel_1'], async () => {
 })
     .subscribe(async msg => {
         console.log(msg);
-        await ls.notify(['channel_2'], 'First Msg');
         sub1.unsubscribe();
     });
 
-setTimeout(() => {
+setTimeout(async () => {
     const sub2 = ls.listen(['channel_2'], async () => {
         console.log('Second Ready');
-        await ls.notify(['channel_1'], 'Second Msg');
+        await ls.notify(['channel_1'], 'First Msg');
+        await ls.notify(['channel_2'], 'Second Msg');
     })
         .subscribe(msg => {
             console.log(msg);

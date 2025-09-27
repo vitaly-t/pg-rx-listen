@@ -218,9 +218,9 @@ export class PgListenConnection {
         const start = () => {
             connect(retryInit || retryAll || retryDefault);
             return s.pipe(
-                shareReplay(1),
+                shareReplay({bufferSize: 1, refCount: false}),
                 finalize(() => {
-                    if (this.client) {
+                    if (!s.observed && this.client) {
                         this.client.removeListener('notification', onNotify);
                         this.client.removeListener('error', onClientError);
                         this.client.release();
