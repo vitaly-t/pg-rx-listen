@@ -7,7 +7,8 @@
 * Automatically restores lost connections, with the help of [retry-async].
 * Auto-connects on the first subscription and disconnects on the last one. 
 
-> **NOTE: This library, though fully functional, is in active development. Contributors are welcome!**
+> **NOTE: This library, though fully functional, is in active development, and not production-ready!
+> Contributors are very welcome! In the meantime, for [pg-promise] you should use [pg-listener]**
 
 ## Installation
 
@@ -66,3 +67,5 @@ And so on, you can use it with any other library that exposes [Pool] instance.
 [RxJs]:https://github.com/ReactiveX/rxjs
 
 [retry-async]:https://github.com/vitaly-t/retry-async
+
+[pg-listener]:https://github.com/vitaly-t/pg-listener
