@@ -203,7 +203,6 @@ export class PgListenConnection {
 
         const onClientError = (err: any) => {
             const client = this.client!;
-            console.log('onClientError Releasing Client');
             this.client = undefined;
             client.removeListener('notification', onNotify);
             client.release(err);
