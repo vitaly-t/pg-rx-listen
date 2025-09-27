@@ -8,7 +8,7 @@
 * Auto-connects on the first subscription and disconnects on the last one. 
 
 > **NOTE: This library, though fully functional, is in active development, and not production-ready!
-> Contributors are very welcome! In the meantime, for [pg-promise] you should use [pg-listener]**
+> Contributors are very welcome! In the meantime, for [pg-promise] you can use [pg-listener]**
 
 ## Installation
 
