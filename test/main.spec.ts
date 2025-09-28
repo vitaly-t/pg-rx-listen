@@ -85,9 +85,9 @@ describe('listen', () => {
             expect(onConnect).toHaveBeenCalledTimes(1);
             expect(onDisconnect).toHaveBeenCalledTimes(1);
             expect(onQuery).toHaveBeenCalledTimes(3); // LISTEN + NOTIFY + UNLISTEN
-            // expect(onMessage1).toHaveBeenCalledTimes(1);
-            // expect(onMessage2).toHaveBeenCalledTimes(1);
-            // expect(onMessage3).toHaveBeenCalledTimes(1);
+            expect(onMessage1).toHaveBeenCalledTimes(1);
+            expect(onMessage2).toHaveBeenCalledTimes(1);
+            expect(onMessage3).toHaveBeenCalledTimes(1);
             done();
         });
     });
