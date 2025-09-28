@@ -9,8 +9,8 @@ module.exports = {
         }
     },
     coveragePathIgnorePatterns: [
-        './src/retry-async.js',
-        './test/db/index.js'
+        './src/retry-async.*',
+        './test/db/index.*'
     ],
     roots: [
         './test',
