@@ -30,7 +30,7 @@ describe('listen', () => {
             done();
         });
     });
-    it.skip('can share live connection', (done) => {
+    it('can handle instant disconnection', (done) => {
         const ls = new PgListenConnection({pool});
         const onConnect = jest.fn();
         const onDisconnect = jest.fn();
@@ -39,12 +39,14 @@ describe('listen', () => {
         const sub1 = ls.listen(['channel_1']).subscribe();
         const sub2 = ls.listen(['channel_2']).subscribe();
         const sub3 = ls.listen(['channel_3']).subscribe();
+        sub1.unsubscribe();
+        sub2.unsubscribe();
+        sub3.unsubscribe();
         pause(100).then(() => {
-            sub1.unsubscribe();
-            sub2.unsubscribe();
-            sub3.unsubscribe();
             expect(onConnect).toHaveBeenCalledTimes(1);
             expect(onDisconnect).toHaveBeenCalledTimes(1);
+            expect(onConnect).toHaveBeenCalledWith({client: expect.any(Object), count: 1})
+            expect(onDisconnect).toHaveBeenCalledWith({client: expect.any(Object), auto: true, error: undefined});
             done();
         });
     });

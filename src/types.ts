@@ -45,7 +45,14 @@ export interface IPgListenConfig {
  * Parameters for the {@link PgListenConnection.onConnect} event.
  */
 export interface IConnectParams {
+    /**
+     * Instance of the client that got connected.
+     */
     client: IPoolClient;
+
+    /**
+     * Number of times the connection has been established.
+     */
     count: number;
 }
 
@@ -53,9 +60,22 @@ export interface IConnectParams {
  * Parameters for the {@link PgListenConnection.onDisconnect} event.
  */
 export interface IDisconnectParams {
+    /**
+     * Automatic-disconnection flag, when no more subscribers left.
+     * When `false`, the disconnection is due to a connectivity issue.
+     */
     auto: boolean;
+
+    /**
+     * Instance of the client that got disconnected.
+     */
     client: IPoolClient;
-    err?: any;
+
+    /**
+     * Error that caused the disconnection.
+     * It is only set when `auto` is `false`.
+     */
+    error?: any;
 }
 
 /**

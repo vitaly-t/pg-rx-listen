@@ -182,12 +182,23 @@ export class PgListenConnection {
     private createConnection(): Observable<IClient> {
 
         const s = new Subject<IClient>();
-        let count = 0;
+        let count = 0, disconnect = false;
 
         const {pool, retryInit, retryAll} = this.cfg;
 
         const connect = (retry: RetryOptions): void => {
-            retryAsync(() => pool.connect(), retry).then(setup).catch(stop);
+            disconnect = false;
+            retryAsync(() => pool.connect(), retry)
+                .then((client) => {
+                    setup(client);
+                    if (disconnect) {
+                        // got fully unsubscribed while we were connecting;
+                        releaseClient();
+                        const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
+                        onDisconnect.next({auto: true, client});
+                    }
+                })
+                .catch(stop);
         };
 
         const onNotify = (msg: INotificationMessage) => {
@@ -203,16 +214,17 @@ export class PgListenConnection {
 
         const onClientError = (err: any) => {
             const client = this.client!;
-            this.client = undefined;
-            client.removeListener('notification', onNotify);
-            client.release(err);
-            client.removeListener('error', onClientError);
-            clearReferences();
+            releaseClient(err);
             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-            onDisconnect.next({auto: false, err, client});
+            onDisconnect.next({auto: false, error: err, client});
             setTimeout(() => {
                 connect(retryAll || retryDefault);
             });
+        };
+
+        const onPoolError = (err: any) => {
+            // we do nothing here because the client-level handler does what's needed;
+            // it is handled here only to prevent unhandled-error issue on the pool.
         };
 
         const setup = (client: IClient) => {
@@ -226,16 +238,22 @@ export class PgListenConnection {
         };
 
         const stop = (err: any) => {
+            releaseClient(err);
+            pool.removeListener('error', onPoolError);
+            this.live = false;
+            const onEnd = this.onEnd as Subject<any>;
+            onEnd.next(err);
+            s.error(err);
+        };
+
+        const releaseClient = (err?: any) => {
             if (this.client) {
                 this.client.release(err);
                 this.client.removeListener('notification', onNotify);
                 this.client.removeListener('error', onClientError);
                 this.client = undefined;
+                clearReferences();
             }
-            this.live = false;
-            const onEnd = this.onEnd as Subject<any>;
-            onEnd.next(err);
-            s.error(err);
         };
 
         const clearReferences = () => {
@@ -253,22 +271,19 @@ export class PgListenConnection {
                 finalize(() => {
                     if (!s.observed) {
                         setTimeout(() => {
+                            disconnect = !this.client; // premature disconnection
                             if (this.client) {
-                                this.client.removeListener('notification', onNotify);
-                                this.client.removeListener('error', onClientError);
-                                this.client.release();
+                                const client = this.client;
+                                releaseClient();
                                 const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
-                                onDisconnect.next({auto: true, client: this.client});
-                                this.client = undefined;
-                                deferredObs = undefined;
+                                onDisconnect.next({auto: true, client});
                             }
+                            deferredObs = undefined;
                         });
                     }
                 }));
         };
-        pool.on('error', () => {
-            // do nothing
-        });
+        pool.on('error', onPoolError);
         return defer(() => deferredObs ??= start());
     }
 
