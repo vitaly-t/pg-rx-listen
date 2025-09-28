@@ -55,7 +55,9 @@ ls.listen(['channel_1', 'channel_2'])
     });
 ```
 
-And so on, you can use it with any other library that exposes [Pool] instance.
+And so on, you can use it with any other library that exposes the [Pool] instance.
+
+For further details, see the [Library API](https://vitaly-t.github.io/pg-rx-listen). 
 
 [node-postgres]:https://github.com/brianc/node-postgres
 
