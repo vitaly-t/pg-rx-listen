@@ -59,4 +59,36 @@ describe('listen', () => {
             done();
         });
     });
+    it.skip('correctly share a listening observable', (done) => {
+        const ls = new PgListenConnection({pool});
+        const onConnect = jest.fn();
+        const onDisconnect = jest.fn();
+        const onQuery = jest.fn();
+        ls.onConnect.subscribe(onConnect);
+        ls.onDisconnect.subscribe(onDisconnect);
+        ls.onQuery.subscribe(onQuery);
+        const onMessage1 = jest.fn();
+        const onMessage2 = jest.fn();
+        const onMessage3 = jest.fn();
+        const obs = ls.listen(['channel_1'], async () => {
+            await ls.notify(['channel_1'], 'hello');
+        });
+        const sub1 = obs.subscribe(onMessage1);
+        const sub2 = obs.subscribe(onMessage2);
+        const sub3 = obs.subscribe(onMessage3);
+        pause(100).then(() => {
+            sub1.unsubscribe();
+            sub2.unsubscribe();
+            sub3.unsubscribe();
+        });
+        pause(200).then(() => {
+            expect(onConnect).toHaveBeenCalledTimes(1);
+            expect(onDisconnect).toHaveBeenCalledTimes(1);
+            expect(onQuery).toHaveBeenCalledTimes(3); // LISTEN + NOTIFY + UNLISTEN
+            // expect(onMessage1).toHaveBeenCalledTimes(1);
+            // expect(onMessage2).toHaveBeenCalledTimes(1);
+            // expect(onMessage3).toHaveBeenCalledTimes(1);
+            done();
+        });
+    });
 });
