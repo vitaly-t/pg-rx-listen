@@ -11,9 +11,6 @@
 [![Node Version](https://img.shields.io/badge/nodejs-16%20--%2024-green.svg?logo=node.js&style=flat)](https://nodejs.org)
 [![Postgres Version](https://img.shields.io/badge/postgresql-12%20--%2017-green.svg?logo=postgresql&style=flat)](https://www.postgresql.org)
 
-> **NOTE: This library, though fully functional, is in active development, so you may use it at your own risk.
-> Contributors are very welcome! In the meantime, specifically for [pg-promise] you can use [pg-listener]**
-
 ## Installation
 
 ```

@@ -217,9 +217,7 @@ export class PgListenConnection {
             releaseClient(err);
             const onDisconnect = this.onDisconnect as Subject<IDisconnectParams>;
             onDisconnect.next({auto: false, error: err, client});
-            setTimeout(() => {
-                connect(retryAll || retryDefault);
-            });
+            setTimeout(() => connect(retryAll || retryDefault));
         };
 
         const onPoolError = (err: any) => {

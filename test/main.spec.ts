@@ -50,4 +50,13 @@ describe('listen', () => {
             done();
         });
     });
+    it('can handle zero channels', (done) => {
+        const ls = new PgListenConnection({pool});
+        const sub1 = ls.listen([]).subscribe();
+        pause(100).then(() => {
+            expect(ls.liveChannels).toEqual([]);
+            sub1.unsubscribe();
+            done();
+        });
+    });
 });

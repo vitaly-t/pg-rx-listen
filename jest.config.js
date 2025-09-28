@@ -4,7 +4,7 @@ module.exports = {
     coverageThreshold: {
         global: {
             // TODO: Adjust expectation once I have real tests:
-            branches: 65,
+            branches: 70,
             lines: 85
         }
     },
