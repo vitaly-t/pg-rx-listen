@@ -91,4 +91,16 @@ describe('listen', () => {
             done();
         });
     });
+    it('can notify from connection with delay', async () => {
+        const ls = new PgListenConnection({pool});
+        const onMessage = jest.fn();
+        const sub = ls.listen(['channel_1']).subscribe(onMessage);
+        ls.onConnect.subscribe(async () => {
+            await pause(10); // give pause to complete LISTEN queries
+            await ls.notify(['channel_1'], 'hello');
+        });
+        await pause(100); // give delay for NOTIFY to arrive
+        expect(onMessage).toHaveBeenCalledTimes(1);
+        sub.unsubscribe();
+    });
 });
