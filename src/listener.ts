@@ -74,8 +74,10 @@ export class PgListenConnection {
      * you subscribe to the returned observable.
      *
      * @param channels - List of channels to listen to.
-     * @param [ready] - Optional callback for when it is ready to send notifications (if you need those), i.e.
-     *                when a connection has been established + `LISTEN` queries finished execution.
+     * @param [ready] - Optional callback for when connection has been established, and queries finished execution.
+     *                  It is re-sent when the connection changes or new subscribers appear.
+     *
+     * @returns An observable that emits `LISTEN` notifications for the specified channels.
      */
     listen(channels: string[], ready?: () => void): Observable<INotificationMessage> {
         const uniqueChannels = channels.filter((x, i, a) => a.indexOf(x) === i);

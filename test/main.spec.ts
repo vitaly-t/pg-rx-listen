@@ -59,7 +59,7 @@ describe('listen', () => {
             done();
         });
     });
-    it.skip('correctly share a listening observable', (done) => {
+    it('correctly share a listening observable', (done) => {
         const ls = new PgListenConnection({pool});
         const onConnect = jest.fn();
         const onDisconnect = jest.fn();
@@ -84,10 +84,10 @@ describe('listen', () => {
         pause(200).then(() => {
             expect(onConnect).toHaveBeenCalledTimes(1);
             expect(onDisconnect).toHaveBeenCalledTimes(1);
-            expect(onQuery).toHaveBeenCalledTimes(3); // LISTEN + NOTIFY + UNLISTEN
-            expect(onMessage1).toHaveBeenCalledTimes(1);
-            expect(onMessage2).toHaveBeenCalledTimes(1);
-            expect(onMessage3).toHaveBeenCalledTimes(1);
+            expect(onQuery).toHaveBeenCalledTimes(5); // LISTEN + NOTIFYx3 + UNLISTEN
+            expect(onMessage1).toHaveBeenCalledTimes(3);
+            expect(onMessage2).toHaveBeenCalledTimes(3);
+            expect(onMessage3).toHaveBeenCalledTimes(3);
             done();
         });
     });
